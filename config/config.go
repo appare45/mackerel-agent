@@ -51,6 +51,9 @@ const (
 	CloudPlatformAzureVM
 )
 
+// maxStartDelay Minutes
+const maxStartDelay = 10
+
 func (c CloudPlatform) String() string {
 	switch c {
 	case CloudPlatformAuto:
@@ -132,6 +135,7 @@ type PluginConfig struct {
 	NotificationInterval  *duration     `toml:"notification_interval"`
 	CheckInterval         *duration     `toml:"check_interval"`
 	ExecutionInterval     *duration     `toml:"execution_interval"`
+	StartDelay            *int32        `toml:"start_delay"`
 	MaxCheckAttempts      *int32        `toml:"max_check_attempts"`
 	CustomIdentifier      *string       `toml:"custom_identifier"`
 	PreventAlertAutoClose bool          `toml:"prevent_alert_auto_close"`
@@ -209,6 +213,7 @@ func (cmd *Command) CommandString() string {
 type MetricPlugin struct {
 	Command          Command
 	CustomIdentifier *string
+	StartDelay       *time.Time
 	IncludePattern   *regexp.Regexp
 	ExcludePattern   *regexp.Regexp
 }
@@ -239,9 +244,19 @@ func (pconf *PluginConfig) buildMetricPlugin(name string) (*MetricPlugin, error)
 		}
 	}
 
+	var startDelay time.Time
+	if pconf.StartDelay != nil {
+		if *pconf.StartDelay > maxStartDelay {
+			configLogger.Warningf("'plugin.metrics.%s.start_delay' over %d minutes.", name, maxStartDelay)
+			*pconf.StartDelay = maxStartDelay
+		}
+		startDelay = time.Now().Add(time.Duration(*pconf.StartDelay) * time.Minute)
+	}
+
 	return &MetricPlugin{
 		Command:          *cmd,
 		CustomIdentifier: pconf.CustomIdentifier,
+		StartDelay:       &startDelay,
 		IncludePattern:   includePattern,
 		ExcludePattern:   excludePattern,
 	}, nil
@@ -255,6 +270,7 @@ type CheckPlugin struct {
 	NotificationInterval  *int32
 	CheckInterval         *int32
 	MaxCheckAttempts      *int32
+	StartDelay            *time.Time
 	PreventAlertAutoClose bool
 	Action                *Command
 	Memo                  string
@@ -288,12 +304,22 @@ func (pconf *PluginConfig) buildCheckPlugin(name string) (*CheckPlugin, error) {
 		pconf.Memo = pconf.Memo[:n]
 	}
 
+	var startDelay time.Time
+	if pconf.StartDelay != nil {
+		if *pconf.StartDelay > maxStartDelay {
+			configLogger.Warningf("'plugin.checks.%s.start_delay' over %d minutes.", name, maxStartDelay)
+			*pconf.StartDelay = maxStartDelay
+		}
+		startDelay = time.Now().Add(time.Duration(*pconf.StartDelay) * time.Minute)
+	}
+
 	plugin := CheckPlugin{
 		Command:               *cmd,
 		CustomIdentifier:      pconf.CustomIdentifier,
 		NotificationInterval:  pconf.NotificationInterval.Minutes(),
 		CheckInterval:         pconf.CheckInterval.Minutes(),
 		MaxCheckAttempts:      pconf.MaxCheckAttempts,
+		StartDelay:            &startDelay,
 		PreventAlertAutoClose: pconf.PreventAlertAutoClose,
 		Action:                action,
 		Memo:                  pconf.Memo,
