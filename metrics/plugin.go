@@ -3,10 +3,12 @@ package metrics
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/mackerelio/golib/logging"
 	"github.com/mackerelio/mackerel-agent/config"
@@ -48,7 +50,13 @@ func NewPluginGenerator(conf *config.MetricPlugin) PluginGenerator {
 	return &pluginGenerator{Config: conf}
 }
 
+var ErrStartDelay = errors.New("skipped collectValues because during the period of startDelay")
+
 func (g *pluginGenerator) Generate() (Values, error) {
+	if g.Config.StartDelay != nil && time.Now().Before(*g.Config.StartDelay) {
+		pluginLogger.Debugf("skip execution %s ", g.Config.Command)
+		return nil, ErrStartDelay
+	}
 	results, err := g.collectValues()
 	if err != nil {
 		return nil, err

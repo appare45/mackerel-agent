@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"errors"
 	"sync"
 	"time"
 
@@ -44,6 +45,10 @@ func generateValues(generators []metrics.Generator) []*metrics.ValuesCustomIdent
 				values, err := g.Generate()
 				if seconds := (time.Since(startedAt) / time.Second); seconds > 120 {
 					logger.Warningf("%T.Generate() take a long time (%d seconds)", g, seconds)
+				}
+				if errors.Is(err, metrics.ErrStartDelay) {
+					logger.Infof("skip execution")
+					return
 				}
 				if err != nil {
 					logger.Errorf("Failed to generate value in %T (skip this metric): %s", g, err.Error())
