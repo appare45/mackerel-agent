@@ -442,6 +442,17 @@ func runChecker(ctx context.Context, checker *checks.Checker, checkReportCh chan
 	for {
 		select {
 		case <-time.After(nextInterval):
+			if checker.Config.StartDelay != nil && time.Now().Before(*checker.Config.StartDelay) {
+				logger.Debugf("skip execution %s ", checker.Name)
+
+				// It is possible that `now` is much bigger than `nextTime` because of
+				// laptop sleep mode or any reason.
+				now := time.Now()
+				nextInterval = interval - (now.Sub(nextTime) % interval)
+				nextTime = now.Add(nextInterval)
+
+				continue
+			}
 			report := checker.Check()
 			logger.Debugf("checker %q: report=%v", checker.Name, report)
 
