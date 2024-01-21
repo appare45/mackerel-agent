@@ -213,7 +213,7 @@ type MetricPlugin struct {
 	ExcludePattern   *regexp.Regexp
 }
 
-func (pconf *PluginConfig) buildMetricPlugin() (*MetricPlugin, error) {
+func (pconf *PluginConfig) buildMetricPlugin(name string) (*MetricPlugin, error) {
 	cmd, err := pconf.CommandConfig.parse()
 	if err != nil {
 		return nil, err
@@ -455,7 +455,7 @@ func (conf *Config) setEachPlugins() error {
 	if pconfs, ok := conf.Plugin["metrics"]; ok {
 		var err error
 		for name, pconf := range pconfs {
-			conf.MetricPlugins[name], err = pconf.buildMetricPlugin()
+			conf.MetricPlugins[name], err = pconf.buildMetricPlugin(name)
 			if err != nil {
 				return errors.Wrap(err, "plugin.metrics."+name)
 			}
